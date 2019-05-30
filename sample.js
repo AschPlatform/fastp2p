@@ -1,5 +1,5 @@
 const crypto = require('crypto')
-const Node = require('./node')
+const Node = require('.')
 
 const log = require('debug')('fastp2p:main')
 
