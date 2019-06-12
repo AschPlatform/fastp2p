@@ -90,11 +90,11 @@ class Discovery extends EventEmitter {
 
   announcePublicHandler(req, callback) {
     try {
-      const { addr } = req
+      const { addr } = req.params
       const peer = PeerAddr.parse(addr)
       this.addToPeerBook(peer.id, addr)
     } catch (e) {
-      this.log('Parse announced address error:', e)
+      this.log('Parse announced address error:', e, req)
     }
   }
 
