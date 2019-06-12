@@ -1,4 +1,15 @@
 const EventEmitter = require('events').EventEmitter
+const LRU = require('lru-cache')
+
+function shuffle(arr) {
+  for (let i = 0; i < arr.length; i++) {
+    const j = Math.floor(Math.random() * arr.length)
+    const tmp = arr[i]
+    arr[i] = arr[j]
+    arr[j] = tmp
+  }
+  return arr
+}
 
 class Gossip {
   constructor({ node }) {
@@ -7,6 +18,7 @@ class Gossip {
     this.protocol = '/gossip/0.1.0'
     this.publishLimit = 15
     this.seq = Date.now()
+    this.cache = new LRU({ max: 100000, maxAge: 30 * 60 * 1000 })
   }
 
   async initialize() {
@@ -25,15 +37,23 @@ class Gossip {
   }
 
   publish(topic, data) {
-    const peers = this.getRandomPeers(this.publishLimit)
     const msg = this.buildMessage(topic, data)
+    const key = this.getMessageKey(msg)
+    const filteredPeers = this.node.getPeers().filter(p =>
+      !(p === msg.source || (this.cache.has(key) && this.cache.get(key).has(p)))
+    )
+    const peers = shuffle(filteredPeers).slice(0, this.publishLimit)
     for (const peer of peers) {
       this.node.send(peer, msg)
     }
   }
 
   forward(msg) {
-    const peers = this.getRandomPeers(this.publishLimit)
+    const key = this.getMessageKey(msg)
+    const filteredPeers = this.node.getPeers().filter(p =>
+      !(p === msg.source || (this.cache.has(key) && this.cache.get(key).has(p)))
+    )
+    const peers = shuffle(filteredPeers).slice(0, this.publishLimit)
     for (const peer of peers) {
       this.node.send(peer, msg)
     }
@@ -58,6 +78,10 @@ class Gossip {
     return msg
   }
 
+  getMessageKey(msg) {
+    return `${msg.source}:${msg.seq}`
+  }
+
   getSeq() {
     if (this.seq < Number.MAX_SAFE_INTEGER) {
       this.seq++
@@ -70,23 +94,16 @@ class Gossip {
   receiveMessage(msg, peer) {
     if (msg.protocol !== this.protocol) return
 
-    // TODO validate msg schema
+    const key = this.getMessageKey(msg)
+    if (this.cache.has(key)) {
+      this.cache.get(key).add(peer)
+      return
+    }
+
+    this.cache.set(key, new Set([peer]))
 
     const { topic } = msg
     this.emitter.emit(topic, msg, peer)
-  }
-
-  getRandomPeers(max) {
-    function shuffle(peers) {
-      for (let i = 0; i < peers.length; i++) {
-        const j = Math.floor(Math.random() * peers.length)
-        const tmp = peers[i]
-        peers[i] = peers[j]
-        peers[j] = tmp
-      }
-      return peers
-    }
-    return shuffle(this.node.getPeers()).slice(0, max)
   }
 }
 
