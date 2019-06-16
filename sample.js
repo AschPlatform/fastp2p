@@ -1,3 +1,4 @@
+const assert = require('assert')
 const crypto = require('crypto')
 const Node = require('.')
 
@@ -45,6 +46,13 @@ async function main() {
 
   await node.initialize()
 
+  node.rpc.serve('slowService', (req, callback) => {
+    const expectExeTime = req.params.expectExeTime || 1000
+    setTimeout(() => {
+      callback()
+    }, expectExeTime)
+  })
+
   node.start()
   setInterval(() => {
     node.gossip.publish('transaction', JSON.stringify(createTransaction()))
@@ -75,6 +83,22 @@ async function main() {
     })
     recentlyReceived = 0
     recentlyReceivedDedup = 0
+
+    if (node.getPeers().length > 0) {
+      const peer = node.getPeers()[0]
+      node.rpc.request(peer, 'slowService', {}, (err, result) => {
+        log('slowService request 1 response:', err, result)
+        assert(!err)
+      })
+      node.rpc.request(peer, 'slowService', { expectExeTime: 1000 }, { timeout: 500 }, (err, result) => {
+        log('slowService request 2 response:', err, result)
+        assert(!!err)
+      })
+      node.rpc.request(peer, 'slowService', { expectExeTime: 5000 }, (err, result) => {
+        log('slowService request 3 response:', err, result)
+        assert(!!err)
+      })
+    }
   }, 10000)
 }
 

@@ -63,6 +63,9 @@ class Discovery extends EventEmitter {
 
   findPeers() {
     const peers = this.node.getPeers()
+    if (!peers || peers.length === 0) {
+      return
+    }
     const rnd = Math.floor(Math.random() * peers.length)
     const peer = peers[rnd]
     this.node.rpc.request(peer, 'findPeers', undefined, (error, result) => {

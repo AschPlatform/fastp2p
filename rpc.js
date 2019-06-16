@@ -31,7 +31,7 @@ class RPC {
     this.waitingReqs = new Map()
     this.reqCheckTimer = null
     this.reqCheckInterval = 1000
-    this.reqTimeout = 4000
+    this.defaultReqTimeout = 4000
     this.reqHandlers = new Map()
 
     this.log = debug('fastp2p:rpc')
@@ -53,11 +53,19 @@ class RPC {
 
   }
 
-  request(peer, method, params, callback) {
+  request(peer, method, params, opts, callback) {
     // TODO validate params schema
     const msg = this.buildRequestMessage(method, params)
-    if (typeof callback === 'function') {
-      this.waitingReqs.set(msg.seq, { timestamp: Date.now(), callback })
+
+    let cb
+    if (typeof opts === 'function') {
+      cb = opts
+    } else if (typeof callback === 'function') {
+      cb = callback
+    }
+    if (cb) {
+      const timeout = (opts && opts.timeout) ? opts.timeout : this.defaultReqTimeout
+      this.waitingReqs.set(msg.seq, { timestamp: Date.now(), callback: cb, timeout })
     }
     this.node.send(peer, msg)
   }
@@ -73,8 +81,8 @@ class RPC {
   checkReqTimeout() {
     const toDeleted = []
     this.waitingReqs.forEach((req, seq) => {
-      const { timestamp, callback } = req
-      if (Date.now() > timestamp + this.reqTimeout) {
+      const { timestamp, callback, timeout } = req
+      if (Date.now() > timestamp + timeout) {
         toDeleted.push(seq)
         callback('request timeout')
       }
@@ -123,10 +131,8 @@ class RPC {
     // this.log('receive rpc message===================:', msg)
     if (msg.method) {
       this.processRequest(msg, peer)
-    } else if (msg.error || msg.result) {
-      this.processResponse(msg, peer)
     } else {
-      this.log('unknow rpc message:', msg)
+      this.processResponse(msg, peer)
     }
   }
 
