@@ -6,6 +6,7 @@ const lp = require('pull-length-prefixed')
 const Pushable = require('pull-pushable')
 
 const IDENTIFY_PROTOCOL = '/identify/0.0.0'
+const MAX_BUFFER_SIZE = 1024 * 1024 * 10
 
 class Connection extends EventEmitter {
   constructor({ socket, node }) {
@@ -39,7 +40,7 @@ class Connection extends EventEmitter {
       this.writer,
       lp.encode(),
       duplex,
-      lp.decode(),
+      lp.decode({ maxLength: MAX_BUFFER_SIZE }),
       pull.drain(
         (data) => this.processMessage(data),
         (error) => {
