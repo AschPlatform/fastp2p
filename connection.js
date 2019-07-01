@@ -110,14 +110,18 @@ class Connection extends EventEmitter {
   }
 
   processMessage(data) {
-    const msg = JSON.parse(data.toString())
-    if (msg.protocol === IDENTIFY_PROTOCOL) {
-      this.remoteId = msg.id
-      this.isIdentified = true
-      this.emit('identified')
-      this.startHeartbeat()
-    } else {
-      this.emit('message', msg)
+    try {
+      const msg = JSON.parse(data.toString())
+      if (msg.protocol === IDENTIFY_PROTOCOL) {
+        this.remoteId = msg.id
+        this.isIdentified = true
+        this.emit('identified')
+        this.startHeartbeat()
+      } else {
+        this.emit('message', msg)
+      }
+    } catch (e) {
+      this.log('invalid message format:', data)
     }
   }
 
