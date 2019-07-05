@@ -129,6 +129,7 @@ class Node extends EventEmitter {
     const connection = new Connection({
       socket,
       node: this,
+      remoteId: id,
     })
     connection.on('close', () => {
       if (this.connectingIds.has(id)) {
@@ -158,7 +159,7 @@ class Node extends EventEmitter {
     conn.start()
     conn.on('identified', () => {
       const id = conn.getRemotePeerId()
-      this.log('connection handshaked', id)
+      this.log('connection identified', id)
       if (this.connections.has(id)) {
         this.log('connection already exists:', id)
         conn.destroy()
@@ -167,6 +168,12 @@ class Node extends EventEmitter {
         this.emit('connected', id)
       }
       this.connectingIds.delete(id)
+    })
+
+    conn.on('identify:failed', () => {
+      const id = conn.getRemotePeerId()
+      this.connectingIds.delete(id)
+      this.emit('identify:failed', id)
     })
 
     conn.on('error', (error) => {

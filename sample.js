@@ -33,9 +33,7 @@ async function main() {
       seeds: [
         '/ipv4/127.0.0.1/tcp/10001/satoshi',
         '/ipv4/127.0.0.1/tcp/10002/qingfeng',
-        '/ipv4/47.52.169.154/tcp/10010/cdn',
-        '/ipv4/47.52.45.101/tcp/10011/sp',
-        '/ipv4/150.109.62.142/tcp/10012/pixel',
+        '/ipv4/127.0.0.1/tcp/10003/alice',
       ],
       publicIp: '',
       peerDb: './data/peer.db'
@@ -48,8 +46,9 @@ async function main() {
 
   node.rpc.serve('slowService', (req, callback) => {
     const expectExeTime = req.params.expectExeTime || 1000
+    log('===========receive slowService request', req.params, Date.now())
     setTimeout(() => {
-      callback()
+      callback(null, 'haha haha')
     }, expectExeTime)
   })
 
@@ -86,16 +85,16 @@ async function main() {
 
     if (node.getPeers().length > 0) {
       const peer = node.getPeers()[0]
-      node.rpc.request(peer, 'slowService', {}, (err, result) => {
-        log('slowService request 1 response:', err, result)
+      node.rpc.request(peer, 'slowService', { q: 1}, (err, result) => {
+        log('slowService request 1 response:', err, result, Date.now())
         assert(!err)
       })
-      node.rpc.request(peer, 'slowService', { expectExeTime: 1000 }, { timeout: 500 }, (err, result) => {
-        log('slowService request 2 response:', err, result)
+      node.rpc.request(peer, 'slowService', { expectExeTime: 6000, q:2 }, { timeout: 5000 }, (err, result) => {
+        log('slowService request 2 response:', err, result, Date.now())
         assert(!!err)
       })
-      node.rpc.request(peer, 'slowService', { expectExeTime: 5000 }, (err, result) => {
-        log('slowService request 3 response:', err, result)
+      node.rpc.request(peer, 'slowService', { expectExeTime: 5000, q:3 }, (err, result) => {
+        log('slowService request 3 response:', err, result, Date.now())
         assert(!!err)
       })
     }

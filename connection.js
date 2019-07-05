@@ -9,13 +9,13 @@ const IDENTIFY_PROTOCOL = '/identify/0.0.0'
 const MAX_BUFFER_SIZE = 1024 * 1024 * 10
 
 class Connection extends EventEmitter {
-  constructor({ socket, node }) {
+  constructor({ socket, node, remoteId }) {
     super()
     this.socket = socket
     this.node = node
     this.isIdentified = false
     this.observedAddress = `${socket.remoteAddress}:${socket.remotePort}`
-    this.remoteId = null
+    this.remoteId = remoteId
     this.writer = null
     this.started = false
     this.destroyed = false
@@ -64,10 +64,9 @@ class Connection extends EventEmitter {
     })
 
     // TODO use asymmetric encryption to identify
-    this.send({
-      protocol: IDENTIFY_PROTOCOL,
-      id: this.node.id,
-    })
+    if (!this.remoteId) {
+      this.identify()
+    }
 
     setTimeout(() => {
       if (!this.isIdentified) {
@@ -113,6 +112,14 @@ class Connection extends EventEmitter {
     try {
       const msg = JSON.parse(data.toString())
       if (msg.protocol === IDENTIFY_PROTOCOL) {
+        if (this.remoteId) {
+          if (this.remoteId !== msg.id) {
+            this.emit('identify:failed')
+            this.destroy()
+            return
+          }
+          this.identify()
+        }
         this.remoteId = msg.id
         this.isIdentified = true
         this.emit('identified')
@@ -125,9 +132,17 @@ class Connection extends EventEmitter {
     }
   }
 
+  identify() {
+    this.send({
+      protocol: IDENTIFY_PROTOCOL,
+      id: this.node.id,
+    })
+  }
+
   emitClose(reason) {
     if (!this.closed) {
       this.closed = true
+      this.destroy()
       this.stopHeartbeat()
       this.emit('close', reason)
     }

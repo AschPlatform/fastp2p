@@ -64,6 +64,9 @@ class PeerBook {
 
   remove(id) {
     this.peers.delete(id)
+    this.db.remove({ id }, {}, (err) => {
+      if (err) log('peer db remove failed:', err)
+    })
   }
 
   ban(id) {

@@ -9,6 +9,7 @@ class Discovery extends EventEmitter {
 
     this.seeds = opts.seeds
     this.node = opts.node
+    this.blackList = new Set()
     this.peerBook = new PeerBook({
       maxBanAttempts: opts.maxBanAttempts,
       banTTL: opts.banTTL,
@@ -27,6 +28,7 @@ class Discovery extends EventEmitter {
     this.node.on('connected', this.onConnected.bind(this))
     this.node.on('disconnected', this.onDisconnected.bind(this))
     this.node.on('connect:failed', this.onConnectFailed.bind(this))
+    this.node.on('identify:failed', this.onIdentifyFailed.bind(this))
 
     this.seeds.forEach(seed => {
       const peer = PeerAddr.parse(seed)
@@ -86,7 +88,7 @@ class Discovery extends EventEmitter {
   }
 
   addToPeerBook(id, addr) {
-    if (id !== this.node.id) {
+    if (id !== this.node.id && !this.blackList.has(id)) {
       this.peerBook.add(id, addr)
     }
   }
@@ -118,6 +120,12 @@ class Discovery extends EventEmitter {
   onConnectFailed(peer) {
     this.log('peer connect failed:', peer)
     this.peerBook.ban(peer)
+  }
+
+  onIdentifyFailed(peer) {
+    this.log('peer identify failed:', peer)
+    this.peerBook.remove(peer)
+    this.blackList.add(peer)
   }
 }
 
